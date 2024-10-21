@@ -1,0 +1,59 @@
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::system_program;
+
+declare_id!("YourProgramPublicKeyHere");
+
+#[program]
+pub mod sniping_opportunity {
+    use super::*;
+
+    pub fn create_order(ctx: Context<CreateOrder>, amount: u64, target_price: u64) -> ProgramResult {
+        let order = &mut ctx.accounts.order;
+        order.owner = *ctx.accounts.user.key;
+        order.amount = amount;
+        order.target_price = target_price;
+        order.is_filled = false;
+        Ok(())
+    }
+
+    pub fn fulfill_order(ctx: Context<FulfillOrder>, actual_price: u64) -> ProgramResult {
+        let order = &mut ctx.accounts.order;
+
+        // Check if the actual price matches the sniping condition (e.g., lower than target)
+        if actual_price <= order.target_price {
+            // Logic for fulfilling the order (e.g., transferring tokens, etc.)
+            // Assuming the bot has already handled transferring funds to this contract
+
+            order.is_filled = true;
+        } else {
+            // Reject the order fulfillment
+            return Err(ProgramError::InvalidArgument);
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct CreateOrder<'info> {
+    #[account(init, payer = user, space = 8 + 32 + 8 + 8 + 1)]
+    pub order: Account<'info, Order>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct FulfillOrder<'info> {
+    #[account(mut, has_one = owner)]
+    pub order: Account<'info, Order>,
+    pub user: Signer<'info>,
+}
+
+#[account]
+pub struct Order {
+    pub owner: Pubkey,
+    pub amount: u64,
+    pub target_price: u64,
+    pub is_filled: bool,
+}
